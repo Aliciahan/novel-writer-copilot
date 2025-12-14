@@ -103,44 +103,45 @@ function WorkTreeView({
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-      <div style={{ padding: '16px', borderBottom: '1px solid #f0f0f0' }}>
+      <div style={{ padding: '12px', borderBottom: '1px solid #f0f0f0' }}>
         <Button
+          size="small"
           icon={<ArrowLeftOutlined />}
           onClick={onBack}
-          style={{ marginBottom: '12px' }}
+          style={{ marginBottom: '8px' }}
         >
           返回
         </Button>
-        <div style={{ fontSize: '16px', fontWeight: 'bold', marginTop: '8px', marginBottom: '12px' }}>
+        <div style={{ fontSize: '14px', fontWeight: '600', marginBottom: '8px' }}>
           {workName}
         </div>
         {checkedKeys.length > 0 && (
-          <Space style={{ width: '100%' }} size="small">
+          <Space style={{ width: '100%' }} size={4}>
             <Button
               icon={<CopyOutlined />}
               onClick={onCopy}
               size="small"
-              style={{ flex: 1 }}
+              style={{ flex: 1, fontSize: '12px' }}
             >
-              复制 ({checkedKeys.length})
+              复制({checkedKeys.length})
             </Button>
             <Button
               icon={<ExportOutlined />}
               onClick={onExport}
               size="small"
               type="primary"
-              style={{ flex: 1 }}
+              style={{ flex: 1, fontSize: '12px' }}
             >
-              导出 ({checkedKeys.length})
+              导出({checkedKeys.length})
             </Button>
           </Space>
         )}
       </div>
 
-      <div style={{ padding: '16px', flex: 1, overflow: 'auto' }}>
+      <div style={{ padding: '8px 12px', flex: 1, overflow: 'auto' }}>
         {loading ? (
-          <div style={{ padding: '24px', textAlign: 'center' }}>
-            <Spin tip="加载中..." />
+          <div style={{ padding: '16px', textAlign: 'center' }}>
+            <Spin size="small" tip="加载中..." />
           </div>
         ) : (
           <Tree

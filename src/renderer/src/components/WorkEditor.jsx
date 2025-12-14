@@ -705,7 +705,7 @@ function WorkEditor({ workId, workName, onBack }) {
 
       <Content
         style={{
-          padding: '24px',
+          padding: '12px',
           background: '#f0f2f5',
           height: '100vh',
           overflow: 'auto'

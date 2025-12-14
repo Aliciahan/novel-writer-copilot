@@ -44,29 +44,30 @@ function ContentEditor({
       <div
         style={{
           background: '#fff',
-          padding: '24px',
-          borderRadius: '8px',
+          padding: '16px',
+          borderRadius: '4px',
           height: 'calc(100vh - 48px)',
           display: 'flex',
           flexDirection: 'column',
           overflow: 'hidden'
         }}
       >
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', flex: '0 0 auto' }}>
-          <h2 style={{ margin: 0 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', flex: '0 0 auto' }}>
+          <h3 style={{ margin: 0, fontSize: '16px', fontWeight: '600' }}>
             {typeof selectedNode.title === 'string'
               ? selectedNode.title
               : selectedNode.title?.props?.children?.[0] || ''}
-          </h2>
+          </h3>
           <Button 
+            size="small"
             icon={<HistoryOutlined />}
             onClick={onShowVersions}
           >
-            版本历史
+            历史
           </Button>
         </div>
 
-        <div style={{ flex: '1 1 auto', marginBottom: '16px', overflow: 'auto' }}>
+        <div style={{ flex: '1 1 auto', marginBottom: '12px', overflow: 'auto' }}>
           <TextArea
             value={content}
             onChange={(e) => onContentChange(e.target.value)}
@@ -85,8 +86,9 @@ function ContentEditor({
             estimatedTokens={estimatedTokens}
           />
 
-          <div style={{ textAlign: 'right', marginTop: '16px' }}>
+          <div style={{ textAlign: 'right' }}>
             <Button 
+              size="small"
               type="primary" 
               loading={saving} 
               onClick={onSave}

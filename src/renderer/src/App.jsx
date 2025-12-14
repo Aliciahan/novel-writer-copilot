@@ -3,9 +3,10 @@ import { ConfigProvider, theme } from 'antd'
 import WorkLibrary from './components/WorkLibrary'
 import Settings from './components/Settings'
 import WorkEditor from './components/WorkEditor'
+import PromptConfiguration from './components/PromptConfiguration'
 
 function App() {
-  const [currentView, setCurrentView] = useState('library') // 'library', 'settings', or 'editor'
+  const [currentView, setCurrentView] = useState('library') // 'library', 'settings', 'prompts', or 'editor'
   const [currentWork, setCurrentWork] = useState(null)
 
   useEffect(() => {
@@ -38,6 +39,8 @@ function App() {
       <div style={{ minHeight: '100vh' }}>
         {currentView === 'settings' ? (
           <Settings onBack={() => setCurrentView('library')} />
+        ) : currentView === 'prompts' ? (
+          <PromptConfiguration onBack={() => setCurrentView('library')} />
         ) : currentView === 'editor' && currentWork ? (
           <WorkEditor
             workId={currentWork.id}
@@ -45,7 +48,10 @@ function App() {
             onBack={handleBackToLibrary}
           />
         ) : (
-          <WorkLibrary onOpenWork={handleOpenWork} />
+          <WorkLibrary 
+            onOpenWork={handleOpenWork} 
+            onOpenPrompts={() => setCurrentView('prompts')}
+          />
         )}
       </div>
     </ConfigProvider>

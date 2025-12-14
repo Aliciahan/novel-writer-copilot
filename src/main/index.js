@@ -19,6 +19,13 @@ import {
   getVersionContent, 
   restoreVersion 
 } from './db/contents.js'
+import { 
+  getAllPrompts, 
+  getPrompt, 
+  createPrompt, 
+  updatePrompt, 
+  deletePrompt 
+} from './db/prompts.js'
 import { generateText } from './services/aiService.js'
 
 function createWindow() {
@@ -200,6 +207,27 @@ app.whenReady().then(() => {
 
   ipcMain.handle('restore-version', async (event, nodeId, version) => {
     return restoreVersion(nodeId, version)
+  })
+
+  // Prompt 模板 IPC handlers
+  ipcMain.handle('get-all-prompts', async () => {
+    return getAllPrompts()
+  })
+
+  ipcMain.handle('get-prompt', async (event, id) => {
+    return getPrompt(id)
+  })
+
+  ipcMain.handle('create-prompt', async (event, name, content) => {
+    return createPrompt(name, content)
+  })
+
+  ipcMain.handle('update-prompt', async (event, id, name, content) => {
+    return updatePrompt(id, name, content)
+  })
+
+  ipcMain.handle('delete-prompt', async (event, id) => {
+    return deletePrompt(id)
   })
 
   // AI服务 IPC handlers

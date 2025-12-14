@@ -40,6 +40,13 @@ const api = {
   getVersionContent: (nodeId, version) => ipcRenderer.invoke('get-version-content', nodeId, version),
   restoreVersion: (nodeId, version) => ipcRenderer.invoke('restore-version', nodeId, version),
 
+  // Prompt 模板API
+  getAllPrompts: () => ipcRenderer.invoke('get-all-prompts'),
+  getPrompt: (id) => ipcRenderer.invoke('get-prompt', id),
+  createPrompt: (name, content) => ipcRenderer.invoke('create-prompt', name, content),
+  updatePrompt: (id, name, content) => ipcRenderer.invoke('update-prompt', id, name, content),
+  deletePrompt: (id) => ipcRenderer.invoke('delete-prompt', id),
+
   // AI服务API
   aiGenerateText: (prompt, context) => ipcRenderer.invoke('ai-generate-text', prompt, context),
 

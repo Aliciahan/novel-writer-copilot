@@ -17,13 +17,14 @@ import {
   PlusOutlined,
   EditOutlined,
   DeleteOutlined,
-  BookOutlined
+  BookOutlined,
+  ThunderboltOutlined
 } from '@ant-design/icons'
 
 const { Title, Text, Paragraph } = Typography
 const { TextArea } = Input
 
-function WorkLibrary({ onOpenWork }) {
+function WorkLibrary({ onOpenWork, onOpenPrompts }) {
   const [works, setWorks] = useState([])
   const [loading, setLoading] = useState(false)
   const [modalVisible, setModalVisible] = useState(false)
@@ -138,14 +139,23 @@ function WorkLibrary({ onOpenWork }) {
           <Title level={2} style={{ margin: 0 }}>
             <BookOutlined /> 作品书架
           </Title>
-          <Button
-            type="primary"
-            size="large"
-            icon={<PlusOutlined />}
-            onClick={() => handleOpenModal()}
-          >
-            新建作品
-          </Button>
+          <div style={{ display: 'flex', gap: '12px' }}>
+            <Button
+              size="large"
+              icon={<ThunderboltOutlined />}
+              onClick={onOpenPrompts}
+            >
+              Prompt 模板
+            </Button>
+            <Button
+              type="primary"
+              size="large"
+              icon={<PlusOutlined />}
+              onClick={() => handleOpenModal()}
+            >
+              新建作品
+            </Button>
+          </div>
         </div>
 
         {works.length === 0 ? (
@@ -275,7 +285,8 @@ function WorkLibrary({ onOpenWork }) {
 }
 
 WorkLibrary.propTypes = {
-  onOpenWork: PropTypes.func.isRequired
+  onOpenWork: PropTypes.func.isRequired,
+  onOpenPrompts: PropTypes.func.isRequired
 }
 
 export default WorkLibrary

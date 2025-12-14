@@ -125,6 +125,17 @@ export function initDatabase() {
       ON content_versions(node_id)
     `)
     
+    // 创建 Prompt 模板表
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS prompt_templates (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL,
+        content TEXT NOT NULL,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      )
+    `)
+    
     console.log('Database initialized at:', dbPath)
     return db
   } catch (error) {
