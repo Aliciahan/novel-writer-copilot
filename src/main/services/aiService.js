@@ -26,8 +26,45 @@ export async function generateText(prompt, context = '') {
 
     const response = await ai.models.generateContent({
       model: modelName,
-      contents: fullPrompt
+      contents: fullPrompt,
+      safetySettings: [
+        {
+          category: 'HARM_CATEGORY_HARASSMENT',
+          threshold: 'BLOCK_NONE'
+        },
+        {
+          category: 'HARM_CATEGORY_HATE_SPEECH',
+          threshold: 'BLOCK_NONE'
+        },
+        {
+          category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT',
+          threshold: 'BLOCK_NONE'
+        },
+        {
+          category: 'HARM_CATEGORY_DANGEROUS_CONTENT',
+          threshold: 'BLOCK_NONE'
+        }
+      ]
     })
+
+    // 检查是否有内容被阻止
+    if (response.promptFeedback?.blockReason) {
+      const blockReason = response.promptFeedback.blockReason
+      console.error('Content blocked by AI:', blockReason)
+      
+      const blockReasonMessages = {
+        'PROHIBITED_CONTENT': '内容被 AI 安全策略阻止（禁止内容）',
+        'SAFETY': '内容被 AI 安全策略阻止（安全原因）',
+        'OTHER': '内容被 AI 安全策略阻止'
+      }
+      
+      throw new Error(blockReasonMessages[blockReason] || `内容被阻止: ${blockReason}`)
+    }
+
+    if (!response || !response.text) {
+      console.error('Invalid AI response:', response)
+      throw new Error('AI 返回了空响应，请尝试修改提示词')
+    }
 
     return response.text
   } catch (error) {
@@ -61,6 +98,24 @@ export async function generateTextStream(prompt, context = '') {
     const response = await ai.models.generateContent({
       model: modelName,
       contents: fullPrompt,
+      safetySettings: [
+        {
+          category: 'HARM_CATEGORY_HARASSMENT',
+          threshold: 'BLOCK_NONE'
+        },
+        {
+          category: 'HARM_CATEGORY_HATE_SPEECH',
+          threshold: 'BLOCK_NONE'
+        },
+        {
+          category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT',
+          threshold: 'BLOCK_NONE'
+        },
+        {
+          category: 'HARM_CATEGORY_DANGEROUS_CONTENT',
+          threshold: 'BLOCK_NONE'
+        }
+      ],
       config: {
         stream: true
       }

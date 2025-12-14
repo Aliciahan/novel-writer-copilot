@@ -9,13 +9,19 @@ const { Sider, Content } = Layout
 
 // 懒加载 tiktoken encoder
 let encoder = null
+let encoderFailed = false
 const getEncoder = async () => {
+  if (encoderFailed) {
+    return null // 如果之前失败过，直接返回 null
+  }
   if (!encoder) {
     try {
       const { encoding_for_model } = await import('@dqbd/tiktoken')
       encoder = encoding_for_model('gpt-4')
     } catch (error) {
-      console.error('Failed to initialize tiktoken encoder:', error)
+      console.warn('Tiktoken encoder not available, using approximate token estimation')
+      encoderFailed = true
+      return null
     }
   }
   return encoder
@@ -440,6 +446,11 @@ function WorkEditor({ workId, workName, onBack }) {
 
       const response = await window.api.aiGenerateText(aiPrompt, fullContext)
       
+      if (!response) {
+        message.error('AI 返回了空响应')
+        return
+      }
+
       console.debug('AI Response:', {
         responseLength: response.length,
         estimatedResponseTokens: await estimateTokens(response)
