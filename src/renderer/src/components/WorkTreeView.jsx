@@ -137,12 +137,12 @@ function WorkTreeView({
         )}
       </div>
 
-      {loading ? (
-        <div style={{ padding: '24px', textAlign: 'center' }}>
-          <Spin tip="加载中..." />
-        </div>
-      ) : (
-        <div style={{ padding: '16px', flex: 1, overflow: 'auto' }}>
+      <div style={{ padding: '16px', flex: 1, overflow: 'auto' }}>
+        {loading ? (
+          <div style={{ padding: '24px', textAlign: 'center' }}>
+            <Spin tip="加载中..." />
+          </div>
+        ) : (
           <Tree
             showIcon
             icon={renderTreeIcon}
@@ -155,8 +155,8 @@ function WorkTreeView({
             titleRender={titleRender}
             blockNode
           />
-        </div>
-      )}
+        )}
+      </div>
     </div>
   )
 }

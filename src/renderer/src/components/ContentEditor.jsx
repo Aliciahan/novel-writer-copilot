@@ -46,10 +46,13 @@ function ContentEditor({
           background: '#fff',
           padding: '24px',
           borderRadius: '8px',
-          minHeight: 'calc(100vh - 48px)'
+          height: 'calc(100vh - 48px)',
+          display: 'flex',
+          flexDirection: 'column',
+          overflow: 'hidden'
         }}
       >
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', flex: '0 0 auto' }}>
           <h2 style={{ margin: 0 }}>
             {typeof selectedNode.title === 'string'
               ? selectedNode.title
@@ -63,32 +66,35 @@ function ContentEditor({
           </Button>
         </div>
 
-        <TextArea
-          value={content}
-          onChange={(e) => onContentChange(e.target.value)}
-          placeholder="在这里输入内容..."
-          autoSize={{ minRows: 15, maxRows: 30 }}
-          style={{ fontSize: '14px', marginBottom: '16px' }}
-        />
+        <div style={{ flex: '1 1 auto', marginBottom: '16px', overflow: 'auto' }}>
+          <TextArea
+            value={content}
+            onChange={(e) => onContentChange(e.target.value)}
+            placeholder="在这里输入内容..."
+            style={{ fontSize: '14px', height: '100%', resize: 'none' }}
+          />
+        </div>
 
-        <AIAssistant
-          prompt={aiPrompt}
-          onPromptChange={onAiPromptChange}
-          onGenerate={onAiGenerate}
-          generating={aiGenerating}
-          checkedNodesCount={checkedNodesCount}
-          estimatedTokens={estimatedTokens}
-        />
+        <div style={{ flex: '0 0 auto' }}>
+          <AIAssistant
+            prompt={aiPrompt}
+            onPromptChange={onAiPromptChange}
+            onGenerate={onAiGenerate}
+            generating={aiGenerating}
+            checkedNodesCount={checkedNodesCount}
+            estimatedTokens={estimatedTokens}
+          />
 
-        <div style={{ textAlign: 'right' }}>
-          <Button 
-            type="primary" 
-            loading={saving} 
-            onClick={onSave}
-            disabled={!contentChanged}
-          >
-            保存{contentChanged && ' *'}
-          </Button>
+          <div style={{ textAlign: 'right', marginTop: '16px' }}>
+            <Button 
+              type="primary" 
+              loading={saving} 
+              onClick={onSave}
+              disabled={!contentChanged}
+            >
+              保存{contentChanged && ' *'}
+            </Button>
+          </div>
         </div>
       </div>
     </Spin>

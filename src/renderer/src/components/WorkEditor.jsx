@@ -610,13 +610,14 @@ function WorkEditor({ workId, workName, onBack }) {
   }
 
   return (
-    <Layout style={{ minHeight: '100vh' }}>
+    <Layout style={{ height: '100vh', overflow: 'hidden' }}>
       <Sider
         width={280}
         style={{
           background: '#fff',
           borderRight: '1px solid #f0f0f0',
-          overflow: 'auto'
+          height: '100vh',
+          overflow: 'hidden'
         }}
       >
         <WorkTreeView
@@ -637,7 +638,9 @@ function WorkEditor({ workId, workName, onBack }) {
       <Content
         style={{
           padding: '24px',
-          background: '#f0f2f5'
+          background: '#f0f2f5',
+          height: '100vh',
+          overflow: 'auto'
         }}
       >
         <ContentEditor
