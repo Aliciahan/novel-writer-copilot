@@ -107,6 +107,24 @@ export function initDatabase() {
       )
     `)
     
+    // 创建内容版本历史表
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS content_versions (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        node_id INTEGER NOT NULL,
+        version TEXT NOT NULL,
+        content TEXT,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (node_id) REFERENCES work_structure(id) ON DELETE CASCADE
+      )
+    `)
+    
+    // 为version查询添加索引
+    db.exec(`
+      CREATE INDEX IF NOT EXISTS idx_content_versions_node_id 
+      ON content_versions(node_id)
+    `)
+    
     console.log('Database initialized at:', dbPath)
     return db
   } catch (error) {

@@ -12,7 +12,13 @@ import {
   updateNodeTitle,
   deleteNode
 } from './db/structure.js'
-import { getNodeContent, saveNodeContent } from './db/contents.js'
+import { 
+  getNodeContent, 
+  saveNodeContent, 
+  getContentVersions, 
+  getVersionContent, 
+  restoreVersion 
+} from './db/contents.js'
 import { generateText } from './services/aiService.js'
 
 function createWindow() {
@@ -181,6 +187,19 @@ app.whenReady().then(() => {
 
   ipcMain.handle('save-node-content', async (event, nodeId, content) => {
     return saveNodeContent(nodeId, content)
+  })
+
+  // 版本历史 IPC handlers
+  ipcMain.handle('get-content-versions', async (event, nodeId) => {
+    return getContentVersions(nodeId)
+  })
+
+  ipcMain.handle('get-version-content', async (event, nodeId, version) => {
+    return getVersionContent(nodeId, version)
+  })
+
+  ipcMain.handle('restore-version', async (event, nodeId, version) => {
+    return restoreVersion(nodeId, version)
   })
 
   // AI服务 IPC handlers

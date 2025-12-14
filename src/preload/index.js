@@ -35,6 +35,11 @@ const api = {
   getNodeContent: (nodeId) => ipcRenderer.invoke('get-node-content', nodeId),
   saveNodeContent: (nodeId, content) => ipcRenderer.invoke('save-node-content', nodeId, content),
 
+  // 版本历史API
+  getContentVersions: (nodeId) => ipcRenderer.invoke('get-content-versions', nodeId),
+  getVersionContent: (nodeId, version) => ipcRenderer.invoke('get-version-content', nodeId, version),
+  restoreVersion: (nodeId, version) => ipcRenderer.invoke('restore-version', nodeId, version),
+
   // AI服务API
   aiGenerateText: (prompt, context) => ipcRenderer.invoke('ai-generate-text', prompt, context),
 

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import PropTypes from 'prop-types'
-import { Layout, Tree, Spin, message, Button, Input, Dropdown, Card, Space, Modal } from 'antd'
+import { Layout, Tree, Spin, message, Button, Input, Dropdown, Card, Space, Modal, List, Typography } from 'antd'
 import {
   ArrowLeftOutlined,
   FolderOutlined,
@@ -9,10 +9,12 @@ import {
   EllipsisOutlined,
   SendOutlined,
   RobotOutlined,
-  ExportOutlined
+  ExportOutlined,
+  HistoryOutlined
 } from '@ant-design/icons'
 const { Sider, Content } = Layout
 const { TextArea } = Input
+const { Text } = Typography
 
 // 懒加载 tiktoken encoder
 let encoder = null
@@ -41,6 +43,9 @@ function WorkEditor({ workId, workName, onBack }) {
   const [estimatedTokens, setEstimatedTokens] = useState(0)
   const [contentChanged, setContentChanged] = useState(false)
   const [originalContent, setOriginalContent] = useState('')
+  const [versionModalVisible, setVersionModalVisible] = useState(false)
+  const [versions, setVersions] = useState([])
+  const [loadingVersions, setLoadingVersions] = useState(false)
 
   const loadWorkStructure = async () => {
     setLoading(true)
@@ -267,6 +272,85 @@ function WorkEditor({ workId, workName, onBack }) {
       } else {
         message.error('导出失败: ' + (error.message || '未知错误'))
       }
+    }
+  }
+
+  // 显示版本历史
+  const handleShowVersions = async () => {
+    if (!selectedNode) return
+
+    setVersionModalVisible(true)
+    setLoadingVersions(true)
+
+    try {
+      const nodeId = parseInt(selectedNode.key)
+      const versionList = await window.api.getContentVersions(nodeId)
+      setVersions(versionList)
+      console.debug('Loaded versions:', versionList)
+    } catch (error) {
+      console.error('Failed to load versions:', error)
+      message.error('加载版本历史失败')
+    } finally {
+      setLoadingVersions(false)
+    }
+  }
+
+  // 恢复到指定版本
+  const handleRestoreVersion = async (version) => {
+    if (!selectedNode) return
+
+    Modal.confirm({
+      title: '确认恢复版本',
+      content: `确定要恢复到版本 ${version} 吗？当前未保存的修改将会丢失。`,
+      okText: '确认恢复',
+      cancelText: '取消',
+      onOk: async () => {
+        try {
+          const nodeId = parseInt(selectedNode.key)
+          const success = await window.api.restoreVersion(nodeId, version)
+          
+          if (success) {
+            // 重新加载内容
+            const nodeContent = await window.api.getNodeContent(nodeId)
+            setContent(nodeContent || '')
+            setOriginalContent(nodeContent || '')
+            setContentChanged(false)
+            message.success('版本恢复成功')
+            setVersionModalVisible(false)
+          } else {
+            message.error('版本恢复失败')
+          }
+        } catch (error) {
+          console.error('Failed to restore version:', error)
+          message.error('版本恢复失败')
+        }
+      }
+    })
+  }
+
+  // 预览版本内容
+  const handlePreviewVersion = async (version) => {
+    if (!selectedNode) return
+
+    try {
+      const nodeId = parseInt(selectedNode.key)
+      const versionContent = await window.api.getVersionContent(nodeId, version)
+      
+      Modal.info({
+        title: `版本 ${version} 预览`,
+        width: 800,
+        content: (
+          <div style={{ maxHeight: '500px', overflow: 'auto' }}>
+            <pre style={{ whiteSpace: 'pre-wrap', wordWrap: 'break-word' }}>
+              {versionContent}
+            </pre>
+          </div>
+        ),
+        okText: '关闭'
+      })
+    } catch (error) {
+      console.error('Failed to preview version:', error)
+      message.error('加载版本内容失败')
     }
   }
 
@@ -594,11 +678,19 @@ function WorkEditor({ workId, workName, onBack }) {
                 minHeight: 'calc(100vh - 48px)'
               }}
             >
-              <h2 style={{ marginBottom: '24px' }}>
-                {typeof selectedNode.title === 'string'
-                  ? selectedNode.title
-                  : selectedNode.title?.props?.children?.[0] || ''}
-              </h2>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+                <h2 style={{ margin: 0 }}>
+                  {typeof selectedNode.title === 'string'
+                    ? selectedNode.title
+                    : selectedNode.title?.props?.children?.[0] || ''}
+                </h2>
+                <Button 
+                  icon={<HistoryOutlined />}
+                  onClick={handleShowVersions}
+                >
+                  版本历史
+                </Button>
+              </div>
               <TextArea
                 value={content}
                 onChange={(e) => {
@@ -688,6 +780,67 @@ function WorkEditor({ workId, workName, onBack }) {
           </div>
         )}
       </Content>
+
+      {/* 版本历史Modal */}
+      <Modal
+        title="版本历史"
+        open={versionModalVisible}
+        onCancel={() => setVersionModalVisible(false)}
+        footer={null}
+        width={700}
+      >
+        <Spin spinning={loadingVersions}>
+          {versions.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: '40px', color: '#999' }}>
+              暂无历史版本
+            </div>
+          ) : (
+            <List
+              dataSource={versions}
+              renderItem={(item) => (
+                <List.Item
+                  actions={[
+                    <Button
+                      key="preview"
+                      type="link"
+                      onClick={() => handlePreviewVersion(item.version)}
+                    >
+                      预览
+                    </Button>,
+                    <Button
+                      key="restore"
+                      type="link"
+                      onClick={() => handleRestoreVersion(item.version)}
+                    >
+                      恢复
+                    </Button>
+                  ]}
+                >
+                  <List.Item.Meta
+                    title={`版本 ${item.version}`}
+                    description={
+                      <div>
+                        <div>
+                          <Text type="secondary">
+                            创建时间: {new Date(item.created_at).toLocaleString('zh-CN')}
+                          </Text>
+                        </div>
+                        {item.preview && (
+                          <div style={{ marginTop: '8px' }}>
+                            <Text type="secondary" ellipsis>
+                              预览: {item.preview}...
+                            </Text>
+                          </div>
+                        )}
+                      </div>
+                    }
+                  />
+                </List.Item>
+              )}
+            />
+          )}
+        </Spin>
+      </Modal>
     </Layout>
   )
 }
