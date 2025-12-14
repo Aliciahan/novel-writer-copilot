@@ -1,20 +1,11 @@
 import { useState, useEffect } from 'react'
 import PropTypes from 'prop-types'
-import { Layout, Tree, Spin, message, Button, Input, Dropdown, Card, Space, Modal, List, Typography } from 'antd'
-import {
-  ArrowLeftOutlined,
-  FolderOutlined,
-  FileOutlined,
-  PlusOutlined,
-  EllipsisOutlined,
-  SendOutlined,
-  RobotOutlined,
-  ExportOutlined,
-  HistoryOutlined
-} from '@ant-design/icons'
+import { Layout, message, Modal } from 'antd'
+import WorkTreeView from './WorkTreeView'
+import ContentEditor from './ContentEditor'
+import VersionHistoryModal from './VersionHistoryModal'
+
 const { Sider, Content } = Layout
-const { TextArea } = Input
-const { Text } = Typography
 
 // 懒加载 tiktoken encoder
 let encoder = null
@@ -169,18 +160,6 @@ function WorkEditor({ workId, workName, onBack }) {
     }
 
     const contextParts = []
-    
-    // 递归查找所有节点
-    const findNodeById = (nodes, id) => {
-      for (const node of nodes) {
-        if (node.key === id.toString()) return node
-        if (node.children) {
-          const found = findNodeById(node.children, id)
-          if (found) return found
-        }
-      }
-      return null
-    }
 
     for (const key of checkedKeys) {
       const nodeId = parseInt(key)
@@ -224,6 +203,67 @@ function WorkEditor({ workId, workName, onBack }) {
     }
   }
 
+  // 递归查找节点
+  const findNodeById = (nodes, id) => {
+    for (const node of nodes) {
+      if (node.key === id.toString()) return node
+      if (node.children) {
+        const found = findNodeById(node.children, id)
+        if (found) return found
+      }
+    }
+    return null
+  }
+
+  // 收集勾选节点内容
+  const collectCheckedNodesContent = async () => {
+    const nodesToExport = []
+    for (const key of checkedKeys) {
+      const nodeId = parseInt(key)
+      const node = findNodeById(treeData, nodeId)
+      
+      if (node) {
+        const nodeContent = await window.api.getNodeContent(nodeId)
+        nodesToExport.push({
+          title: node.title,
+          content: nodeContent || ''
+        })
+      }
+    }
+    return nodesToExport
+  }
+
+  // 复制选中内容到剪贴板
+  const handleCopyToClipboard = async () => {
+    if (checkedKeys.length === 0) {
+      message.warning('请先勾选要复制的节点')
+      return
+    }
+
+    try {
+      const nodesToExport = await collectCheckedNodesContent()
+      
+      // 构建 Markdown 内容
+      let markdown = `# ${workName}\n\n`
+      markdown += `> 复制时间: ${new Date().toLocaleString('zh-CN')}\n\n`
+      markdown += `---\n\n`
+
+      for (const node of nodesToExport) {
+        markdown += `## ${node.title}\n\n`
+        markdown += `${node.content || '(无内容)'}\n\n`
+        markdown += `---\n\n`
+      }
+
+      // 复制到剪贴板
+      await navigator.clipboard.writeText(markdown)
+      message.success(`已复制 ${checkedKeys.length} 个节点的内容到剪贴板`)
+      console.debug('Copied to clipboard:', nodesToExport.length, 'nodes')
+    } catch (error) {
+      console.error('Copy failed:', error)
+      message.error('复制失败: ' + (error.message || '未知错误'))
+    }
+  }
+
   // 导出选中节点到Markdown
   const handleExportToMarkdown = async () => {
     if (checkedKeys.length === 0) {
@@ -232,33 +272,7 @@ function WorkEditor({ workId, workName, onBack }) {
     }
 
     try {
-      // 递归查找所有节点
-      const findNodeById = (nodes, id) => {
-        for (const node of nodes) {
-          if (node.key === id.toString()) return node
-          if (node.children) {
-            const found = findNodeById(node.children, id)
-            if (found) return found
-          }
-        }
-        return null
-      }
-
-      // 收集所有勾选节点的内容
-      const nodesToExport = []
-      for (const key of checkedKeys) {
-        const nodeId = parseInt(key)
-        const node = findNodeById(treeData, nodeId)
-        
-        if (node) {
-          const nodeContent = await window.api.getNodeContent(nodeId)
-          nodesToExport.push({
-            title: node.title,
-            content: nodeContent || ''
-          })
-        }
-      }
-
+      const nodesToExport = await collectCheckedNodesContent()
       const result = await window.api.exportNodesToMarkdown(nodesToExport, workName)
       
       if (result.success) {
@@ -517,18 +531,6 @@ function WorkEditor({ workId, workName, onBack }) {
     }
   }
 
-  // 查找节点
-  const findNodeById = (nodes, id) => {
-    for (const node of nodes) {
-      if (node.id === id) return node
-      if (node.children) {
-        const found = findNodeById(node.children, id)
-        if (found) return found
-      }
-    }
-    return null
-  }
-
   // 渲染树节点图标
   const renderTreeIcon = ({ isLeaf }) => {
     return isLeaf ? <FileOutlined /> : <FolderOutlined />
@@ -617,49 +619,19 @@ function WorkEditor({ workId, workName, onBack }) {
           overflow: 'auto'
         }}
       >
-        <div style={{ padding: '16px', borderBottom: '1px solid #f0f0f0' }}>
-          <Button
-            icon={<ArrowLeftOutlined />}
-            onClick={onBack}
-            style={{ marginBottom: '12px' }}
-          >
-            返回
-          </Button>
-          <div style={{ fontSize: '16px', fontWeight: 'bold', marginTop: '8px', marginBottom: '12px' }}>
-            {workName}
-          </div>
-          {checkedKeys.length > 0 && (
-            <Button
-              icon={<ExportOutlined />}
-              onClick={handleExportToMarkdown}
-              block
-              type="primary"
-            >
-              导出选中内容 ({checkedKeys.length})
-            </Button>
-          )}
-        </div>
-
-        {loading ? (
-          <div style={{ padding: '24px', textAlign: 'center' }}>
-            <Spin tip="加载中..." />
-          </div>
-        ) : (
-          <div style={{ padding: '16px' }}>
-            <Tree
-              showIcon
-              icon={renderTreeIcon}
-              checkable
-              checkedKeys={checkedKeys}
-              onCheck={handleCheck}
-              defaultExpandAll
-              treeData={treeData}
-              onSelect={handleSelect}
-              titleRender={titleRender}
-              blockNode
-            />
-          </div>
-        )}
+        <WorkTreeView
+          workName={workName}
+          treeData={treeData}
+          loading={loading}
+          checkedKeys={checkedKeys}
+          onCheck={handleCheck}
+          onSelect={handleSelect}
+          onBack={onBack}
+          onCopy={handleCopyToClipboard}
+          onExport={handleExportToMarkdown}
+          onAddVolume={handleAddVolume}
+          onAddChapter={handleAddChapter}
+        />
       </Sider>
 
       <Content
@@ -668,179 +640,35 @@ function WorkEditor({ workId, workName, onBack }) {
           background: '#f0f2f5'
         }}
       >
-        {selectedNode ? (
-          <Spin spinning={contentLoading}>
-            <div
-              style={{
-                background: '#fff',
-                padding: '24px',
-                borderRadius: '8px',
-                minHeight: 'calc(100vh - 48px)'
-              }}
-            >
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
-                <h2 style={{ margin: 0 }}>
-                  {typeof selectedNode.title === 'string'
-                    ? selectedNode.title
-                    : selectedNode.title?.props?.children?.[0] || ''}
-                </h2>
-                <Button 
-                  icon={<HistoryOutlined />}
-                  onClick={handleShowVersions}
-                >
-                  版本历史
-                </Button>
-              </div>
-              <TextArea
-                value={content}
-                onChange={(e) => {
-                  setContent(e.target.value)
-                  setContentChanged(e.target.value !== originalContent)
-                }}
-                placeholder="在这里输入内容..."
-                autoSize={{ minRows: 15, maxRows: 30 }}
-                style={{ fontSize: '14px', marginBottom: '16px' }}
-              />
-              
-              <Card 
-                title={
-                  <Space>
-                    <RobotOutlined />
-                    <span>AI 写作助手</span>
-                    {estimatedTokens > 0 && (
-                      <span style={{ fontSize: '12px', color: '#999', marginLeft: '8px' }}>
-                        (~{estimatedTokens} tokens)
-                      </span>
-                    )}
-                  </Space>
-                }
-                size="small"
-                style={{ marginBottom: '16px' }}
-              >
-                {checkedKeys.length > 0 && (
-                  <div style={{ 
-                    marginBottom: '12px', 
-                    padding: '8px', 
-                    background: '#f0f2f5', 
-                    borderRadius: '4px',
-                    fontSize: '12px'
-                  }}>
-                    已选择 {checkedKeys.length} 个节点作为参考上下文
-                  </div>
-                )}
-                <Space.Compact style={{ width: '100%' }}>
-                  <TextArea
-                    value={aiPrompt}
-                    onChange={(e) => setAiPrompt(e.target.value)}
-                    placeholder="输入提示词，AI会根据当前内容和左侧勾选的节点生成文本..."
-                    autoSize={{ minRows: 2, maxRows: 4 }}
-                    disabled={aiGenerating}
-                    onPressEnter={(e) => {
-                      if (e.shiftKey) return // Shift+Enter换行
-                      e.preventDefault()
-                      handleAiGenerate()
-                    }}
-                  />
-                  <Button
-                    type="primary"
-                    icon={<SendOutlined />}
-                    loading={aiGenerating}
-                    onClick={handleAiGenerate}
-                    style={{ alignSelf: 'flex-end' }}
-                  >
-                    发送
-                  </Button>
-                </Space.Compact>
-              </Card>
-
-              <div style={{ textAlign: 'right' }}>
-                <Button 
-                  type="primary" 
-                  loading={saving} 
-                  onClick={handleSaveContent}
-                  disabled={!contentChanged}
-                >
-                  保存{contentChanged && ' *'}
-                </Button>
-              </div>
-            </div>
-          </Spin>
-        ) : (
-          <div
-            style={{
-              background: '#fff',
-              padding: '48px',
-              borderRadius: '8px',
-              textAlign: 'center',
-              color: '#999'
-            }}
-          >
-            <FileOutlined style={{ fontSize: '48px', marginBottom: '16px' }} />
-            <p>请从左侧选择要编辑的内容</p>
-          </div>
-        )}
+        <ContentEditor
+          selectedNode={selectedNode}
+          content={content}
+          onContentChange={(value) => {
+            setContent(value)
+            setContentChanged(value !== originalContent)
+          }}
+          contentLoading={contentLoading}
+          saving={saving}
+          contentChanged={contentChanged}
+          onSave={handleSaveContent}
+          onShowVersions={handleShowVersions}
+          aiPrompt={aiPrompt}
+          onAiPromptChange={setAiPrompt}
+          onAiGenerate={handleAiGenerate}
+          aiGenerating={aiGenerating}
+          checkedNodesCount={checkedKeys.length}
+          estimatedTokens={estimatedTokens}
+        />
       </Content>
 
-      {/* 版本历史Modal */}
-      <Modal
-        title="版本历史"
-        open={versionModalVisible}
-        onCancel={() => setVersionModalVisible(false)}
-        footer={null}
-        width={700}
-      >
-        <Spin spinning={loadingVersions}>
-          {versions.length === 0 ? (
-            <div style={{ textAlign: 'center', padding: '40px', color: '#999' }}>
-              暂无历史版本
-            </div>
-          ) : (
-            <List
-              dataSource={versions}
-              renderItem={(item) => (
-                <List.Item
-                  actions={[
-                    <Button
-                      key="preview"
-                      type="link"
-                      onClick={() => handlePreviewVersion(item.version)}
-                    >
-                      预览
-                    </Button>,
-                    <Button
-                      key="restore"
-                      type="link"
-                      onClick={() => handleRestoreVersion(item.version)}
-                    >
-                      恢复
-                    </Button>
-                  ]}
-                >
-                  <List.Item.Meta
-                    title={`版本 ${item.version}`}
-                    description={
-                      <div>
-                        <div>
-                          <Text type="secondary">
-                            创建时间: {new Date(item.created_at).toLocaleString('zh-CN')}
-                          </Text>
-                        </div>
-                        {item.preview && (
-                          <div style={{ marginTop: '8px' }}>
-                            <Text type="secondary" ellipsis>
-                              预览: {item.preview}...
-                            </Text>
-                          </div>
-                        )}
-                      </div>
-                    }
-                  />
-                </List.Item>
-              )}
-            />
-          )}
-        </Spin>
-      </Modal>
+      <VersionHistoryModal
+        visible={versionModalVisible}
+        onClose={() => setVersionModalVisible(false)}
+        versions={versions}
+        loading={loadingVersions}
+        onPreview={handlePreviewVersion}
+        onRestore={handleRestoreVersion}
+      />
     </Layout>
   )
 }
