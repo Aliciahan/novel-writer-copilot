@@ -452,6 +452,8 @@ function WorkEditor({ workId, workName, onBack }) {
         }
         return response
       })
+      // 标记内容已改变，允许保存
+      setContentChanged(true)
       message.success('AI内容生成成功')
       setAiPrompt('') // 清空输入框
       setEstimatedTokens(0) // 重置Token估算
