@@ -37,6 +37,8 @@ function WorkEditor({ workId, workName, onBack }) {
   const [versionModalVisible, setVersionModalVisible] = useState(false)
   const [versions, setVersions] = useState([])
   const [loadingVersions, setLoadingVersions] = useState(false)
+  const [siderWidth, setSiderWidth] = useState(280)
+  const [isResizing, setIsResizing] = useState(false)
 
   const loadWorkStructure = async () => {
     setLoading(true)
@@ -342,6 +344,44 @@ function WorkEditor({ workId, workName, onBack }) {
     })
   }
 
+  // 处理拖拽调整宽度
+  const handleMouseDown = (e) => {
+    e.preventDefault()
+    setIsResizing(true)
+  }
+
+  useEffect(() => {
+    const handleMouseMove = (e) => {
+      if (!isResizing) return
+      
+      // 计算新宽度，限制在 200-600 之间
+      const newWidth = Math.min(Math.max(e.clientX, 200), 600)
+      setSiderWidth(newWidth)
+    }
+
+    const handleMouseUp = () => {
+      setIsResizing(false)
+    }
+
+    if (isResizing) {
+      document.addEventListener('mousemove', handleMouseMove)
+      document.addEventListener('mouseup', handleMouseUp)
+      // 防止拖拽时选中文本
+      document.body.style.userSelect = 'none'
+      document.body.style.cursor = 'col-resize'
+    } else {
+      document.body.style.userSelect = ''
+      document.body.style.cursor = ''
+    }
+
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove)
+      document.removeEventListener('mouseup', handleMouseUp)
+      document.body.style.userSelect = ''
+      document.body.style.cursor = ''
+    }
+  }, [isResizing])
+
   // 预览版本内容
   const handlePreviewVersion = async (version) => {
     if (!selectedNode) return
@@ -612,12 +652,13 @@ function WorkEditor({ workId, workName, onBack }) {
   return (
     <Layout style={{ height: '100vh', overflow: 'hidden' }}>
       <Sider
-        width={280}
+        width={siderWidth}
         style={{
           background: '#fff',
           borderRight: '1px solid #f0f0f0',
           height: '100vh',
-          overflow: 'hidden'
+          overflow: 'hidden',
+          position: 'relative'
         }}
       >
         <WorkTreeView
@@ -632,6 +673,31 @@ function WorkEditor({ workId, workName, onBack }) {
           onExport={handleExportToMarkdown}
           onAddVolume={handleAddVolume}
           onAddChapter={handleAddChapter}
+        />
+        {/* 拖拽分隔条 */}
+        <div
+          onMouseDown={handleMouseDown}
+          style={{
+            position: 'absolute',
+            top: 0,
+            right: -4,
+            bottom: 0,
+            width: '8px',
+            cursor: 'col-resize',
+            backgroundColor: 'transparent',
+            zIndex: 1000,
+            transition: isResizing ? 'none' : 'background-color 0.2s'
+          }}
+          onMouseEnter={(e) => {
+            if (!isResizing) {
+              e.currentTarget.style.backgroundColor = 'rgba(24, 144, 255, 0.2)'
+            }
+          }}
+          onMouseLeave={(e) => {
+            if (!isResizing) {
+              e.currentTarget.style.backgroundColor = 'transparent'
+            }
+          }}
         />
       </Sider>
 
