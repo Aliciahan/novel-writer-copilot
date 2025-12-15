@@ -7,7 +7,8 @@ import {
   CopyOutlined, 
   ExportOutlined,
   EllipsisOutlined,
-  PlusOutlined
+  PlusOutlined,
+  DeleteOutlined
 } from '@ant-design/icons'
 
 function WorkTreeView({ 
@@ -21,7 +22,8 @@ function WorkTreeView({
   onCopy,
   onExport,
   onAddVolume,
-  onAddChapter
+  onAddChapter,
+  onDeleteNode
 }) {
   // 渲染树节点图标
   const renderTreeIcon = ({ isLeaf }) => {
@@ -49,6 +51,28 @@ function WorkTreeView({
         label: '添加新章节',
         icon: <PlusOutlined />,
         onClick: () => onAddChapter(nodeData.id)
+      })
+    }
+
+    // 卷节点可以删除（检查是否是卷节点）
+    if (nodeData.title && nodeData.title.startsWith('卷')) {
+      items.push({
+        key: 'delete-volume',
+        label: '删除此卷',
+        icon: <DeleteOutlined />,
+        danger: true,
+        onClick: () => onDeleteNode(nodeData.id, nodeData.title, 'volume')
+      })
+    }
+
+    // 章节节点可以删除（检查是否是章节节点）
+    if (nodeData.title && nodeData.title.startsWith('正文章节')) {
+      items.push({
+        key: 'delete-chapter',
+        label: '删除此章节',
+        icon: <DeleteOutlined />,
+        danger: true,
+        onClick: () => onDeleteNode(nodeData.id, nodeData.title, 'chapter')
       })
     }
 
@@ -173,7 +197,8 @@ WorkTreeView.propTypes = {
   onCopy: PropTypes.func.isRequired,
   onExport: PropTypes.func.isRequired,
   onAddVolume: PropTypes.func.isRequired,
-  onAddChapter: PropTypes.func.isRequired
+  onAddChapter: PropTypes.func.isRequired,
+  onDeleteNode: PropTypes.func.isRequired
 }
 
 export default WorkTreeView

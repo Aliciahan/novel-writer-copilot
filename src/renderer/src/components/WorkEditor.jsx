@@ -584,82 +584,63 @@ function WorkEditor({ workId, workName, onBack }) {
     }
   }
 
-  // 渲染树节点图标
-  const renderTreeIcon = ({ isLeaf }) => {
-    return isLeaf ? <FileOutlined /> : <FolderOutlined />
+  // 删除节点
+  const handleDeleteNode = async (nodeId, nodeTitle, nodeType) => {
+    const typeText = nodeType === 'volume' ? '卷' : '章节'
+    Modal.confirm({
+      title: `确认删除${typeText}`,
+      content: `确定要删除"${nodeTitle}"吗？此操作将同时删除其下所有子节点，且不可恢复。`,
+      okText: '确认删除',
+      okType: 'danger',
+      cancelText: '取消',
+      onOk: async () => {
+        try {
+          const success = await window.api.deleteNode(nodeId)
+          if (success) {
+            message.success(`${typeText}删除成功`)
+            // 如果删除的是当前选中的节点或其父节点，清空编辑器
+            if (selectedNode && (selectedNode.id === nodeId || isDescendantOf(selectedNode.id, nodeId))) {
+              setSelectedNode(null)
+              setContent('')
+              setOriginalContent('')
+              setContentChanged(false)
+            }
+            // 重新加载结构
+            await loadWorkStructure()
+          } else {
+            message.error(`${typeText}删除失败`)
+          }
+        } catch (error) {
+          console.error('Failed to delete node:', error)
+          message.error(`${typeText}删除失败`)
+        }
+      }
+    })
   }
 
-  // 获取节点操作菜单项
-  const getNodeMenuItems = (nodeData) => {
-    const items = []
-
-    // 作品正文节点可以添加卷
-    if (nodeData.title === '作品正文') {
-      items.push({
-        key: 'add-volume',
-        label: '添加新卷',
-        icon: <PlusOutlined />,
-        onClick: () => handleAddVolume(nodeData.id)
-      })
+  // 检查一个节点是否是另一个节点的后代
+  const isDescendantOf = (nodeId, ancestorId) => {
+    const findNode = (nodes, id) => {
+      for (const node of nodes) {
+        if (node.id === id) return node
+        if (node.children) {
+          const found = findNode(node.children, id)
+          if (found) return found
+        }
+      }
+      return null
     }
 
-    // 本卷正文节点可以添加章节
-    if (nodeData.title === '本卷正文') {
-      items.push({
-        key: 'add-chapter',
-        label: '添加新章节',
-        icon: <PlusOutlined />,
-        onClick: () => handleAddChapter(nodeData.id)
-      })
+    const checkAncestor = (node, targetAncestorId) => {
+      if (!node) return false
+      if (node.id === targetAncestorId) return true
+      const parent = findNode(treeData, node.parent_id)
+      if (!parent) return false
+      return checkAncestor(parent, targetAncestorId)
     }
 
-    return items
-  }
-
-  // 使用titleRender自定义节点标题
-  const titleRender = (nodeData) => {
-    const menuItems = getNodeMenuItems(nodeData)
-
-    return (
-      <div
-        style={{
-          display: 'inline-flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          width: 'calc(100% - 24px)',
-          minWidth: 0
-        }}
-      >
-        <span
-          style={{
-            flex: 1,
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-            whiteSpace: 'nowrap',
-            minWidth: 0
-          }}
-        >
-          {nodeData.title}
-        </span>
-        {menuItems.length > 0 && (
-          <Dropdown
-            menu={{ items: menuItems }}
-            trigger={['click']}
-            placement="bottomRight"
-          >
-            <Button
-              type="text"
-              size="small"
-              icon={<EllipsisOutlined />}
-              onClick={(e) => {
-                e.stopPropagation()
-              }}
-              style={{ marginLeft: '8px', flexShrink: 0 }}
-            />
-          </Dropdown>
-        )}
-      </div>
-    )
+    const node = findNode(treeData, nodeId)
+    return checkAncestor(node, ancestorId)
   }
 
   return (
@@ -686,6 +667,7 @@ function WorkEditor({ workId, workName, onBack }) {
           onExport={handleExportToMarkdown}
           onAddVolume={handleAddVolume}
           onAddChapter={handleAddChapter}
+          onDeleteNode={handleDeleteNode}
         />
         {/* 拖拽分隔条 */}
         <div
