@@ -99,10 +99,25 @@ function WorkTreeView({
             overflow: 'hidden',
             textOverflow: 'ellipsis',
             whiteSpace: 'nowrap',
-            minWidth: 0
+            minWidth: 0,
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px'
           }}
         >
           {nodeData.title}
+          {nodeData.hasContent && (
+            <span
+              style={{
+                width: '6px',
+                height: '6px',
+                borderRadius: '50%',
+                backgroundColor: '#52c41a',
+                flexShrink: 0
+              }}
+              title="已有内容"
+            />
+          )}
         </span>
         {menuItems.length > 0 && (
           <Dropdown

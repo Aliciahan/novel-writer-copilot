@@ -27,6 +27,35 @@ const getEncoder = async () => {
   return encoder
 }
 
+// 统计文本字数（区分中英文）
+const countWords = (text) => {
+  if (!text || typeof text !== 'string') return 0
+  
+  // 移除前后空白
+  text = text.trim()
+  if (text.length === 0) return 0
+  
+  let count = 0
+  
+  // 匹配中文字符（包括中文标点）
+  const chineseRegex = /[\u4e00-\u9fa5\u3000-\u303f\uff00-\uffef]/g
+  const chineseMatches = text.match(chineseRegex)
+  if (chineseMatches) {
+    count += chineseMatches.length
+  }
+  
+  // 移除中文字符后，统计英文单词
+  const textWithoutChinese = text.replace(chineseRegex, ' ')
+  // 匹配英文单词（连续的字母和数字）
+  const englishRegex = /[a-zA-Z0-9]+/g
+  const englishMatches = textWithoutChinese.match(englishRegex)
+  if (englishMatches) {
+    count += englishMatches.length
+  }
+  
+  return count
+}
+
 function WorkEditor({ workId, workName, onBack }) {
   const [treeData, setTreeData] = useState([])
   const [loading, setLoading] = useState(true)
@@ -45,6 +74,7 @@ function WorkEditor({ workId, workName, onBack }) {
   const [loadingVersions, setLoadingVersions] = useState(false)
   const [siderWidth, setSiderWidth] = useState(280)
   const [isResizing, setIsResizing] = useState(false)
+  const [wordCount, setWordCount] = useState(0)
 
   const loadWorkStructure = async () => {
     setLoading(true)
@@ -88,6 +118,7 @@ function WorkEditor({ workId, workName, onBack }) {
       setOriginalContent(nodeContent || '')
       setContentChanged(false)
       setSelectedNode(node)
+      setWordCount(countWords(nodeContent || ''))
     } catch (error) {
       console.error('Failed to load node content:', error)
       message.error('加载内容失败')
@@ -710,6 +741,7 @@ function WorkEditor({ workId, workName, onBack }) {
           onContentChange={(value) => {
             setContent(value)
             setContentChanged(value !== originalContent)
+            setWordCount(countWords(value))
           }}
           contentLoading={contentLoading}
           saving={saving}
@@ -722,6 +754,7 @@ function WorkEditor({ workId, workName, onBack }) {
           aiGenerating={aiGenerating}
           checkedNodesCount={checkedKeys.length}
           estimatedTokens={estimatedTokens}
+          wordCount={wordCount}
         />
       </Content>
 

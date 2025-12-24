@@ -20,7 +20,8 @@ function ContentEditor({
   onAiGenerate,
   aiGenerating,
   checkedNodesCount,
-  estimatedTokens
+  estimatedTokens,
+  wordCount
 }) {
   if (!selectedNode) {
     return (
@@ -53,11 +54,16 @@ function ContentEditor({
         }}
       >
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', flex: '0 0 auto' }}>
-          <h3 style={{ margin: 0, fontSize: '16px', fontWeight: '600' }}>
-            {typeof selectedNode.title === 'string'
-              ? selectedNode.title
-              : selectedNode.title?.props?.children?.[0] || ''}
-          </h3>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <h3 style={{ margin: 0, fontSize: '16px', fontWeight: '600' }}>
+              {typeof selectedNode.title === 'string'
+                ? selectedNode.title
+                : selectedNode.title?.props?.children?.[0] || ''}
+            </h3>
+            <span style={{ fontSize: '13px', color: '#999' }}>
+              {wordCount} 字
+            </span>
+          </div>
           <Button 
             size="small"
             icon={<HistoryOutlined />}
@@ -117,7 +123,8 @@ ContentEditor.propTypes = {
   onAiGenerate: PropTypes.func.isRequired,
   aiGenerating: PropTypes.bool.isRequired,
   checkedNodesCount: PropTypes.number.isRequired,
-  estimatedTokens: PropTypes.number.isRequired
+  estimatedTokens: PropTypes.number.isRequired,
+  wordCount: PropTypes.number.isRequired
 }
 
 export default ContentEditor

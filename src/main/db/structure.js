@@ -38,10 +38,22 @@ export function getWorkStructure(workId) {
   try {
     const db = getDatabase()
     const stmt = db.prepare(`
-      SELECT id, work_id, parent_id, node_type, title, sort_order
-      FROM work_structure
-      WHERE work_id = ?
-      ORDER BY parent_id, sort_order
+      SELECT 
+        ws.id, 
+        ws.work_id, 
+        ws.parent_id, 
+        ws.node_type, 
+        ws.title, 
+        ws.sort_order,
+        CASE 
+          WHEN nc.content IS NOT NULL AND LENGTH(TRIM(nc.content)) > 0 
+          THEN 1 
+          ELSE 0 
+        END as has_content
+      FROM work_structure ws
+      LEFT JOIN node_contents nc ON ws.id = nc.node_id
+      WHERE ws.work_id = ?
+      ORDER BY ws.parent_id, ws.sort_order
     `)
     const nodes = stmt.all(workId)
     return buildTree(nodes)
@@ -64,6 +76,7 @@ function buildTree(nodes, parentId = null) {
         title: node.title,
         nodeType: node.node_type,
         id: node.id,
+        hasContent: node.has_content === 1,
         children: children.length > 0 ? children : undefined
       })
     }
