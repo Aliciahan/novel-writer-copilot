@@ -45,6 +45,7 @@ export function getWorkStructure(workId) {
         ws.node_type, 
         ws.title, 
         ws.sort_order,
+        nc.content,
         CASE 
           WHEN nc.content IS NOT NULL AND LENGTH(TRIM(nc.content)) > 0 
           THEN 1 
@@ -71,12 +72,21 @@ function buildTree(nodes, parentId = null) {
   for (const node of nodes) {
     if (node.parent_id === parentId) {
       const children = buildTree(nodes, node.id)
+      
+      // 提取内容预览（前10个字符）
+      let contentPreview = ''
+      if (node.content && node.content.trim()) {
+        const trimmed = node.content.trim()
+        contentPreview = trimmed.substring(0, 10)
+      }
+      
       tree.push({
         key: `${node.id}`,
         title: node.title,
         nodeType: node.node_type,
         id: node.id,
         hasContent: node.has_content === 1,
+        contentPreview: contentPreview,
         children: children.length > 0 ? children : undefined
       })
     }

@@ -23,7 +23,9 @@ function WorkTreeView({
   onExport,
   onAddVolume,
   onAddChapter,
-  onDeleteNode
+  onDeleteNode,
+  expandedKeys,
+  onExpand
 }) {
   // 渲染树节点图标
   const renderTreeIcon = ({ isLeaf }) => {
@@ -82,6 +84,12 @@ function WorkTreeView({
   // 使用titleRender自定义节点标题
   const titleRender = (nodeData) => {
     const menuItems = getNodeMenuItems(nodeData)
+    
+    // 如果是"正文"节点且有内容预览，显示预览
+    let displayTitle = nodeData.title
+    if (nodeData.title === '正文' && nodeData.contentPreview) {
+      displayTitle = `正文(${nodeData.contentPreview}...)`
+    }
 
     return (
       <div
@@ -105,7 +113,7 @@ function WorkTreeView({
             gap: '6px'
           }}
         >
-          {nodeData.title}
+          {displayTitle}
           {nodeData.hasContent && (
             <span
               style={{
@@ -189,7 +197,9 @@ function WorkTreeView({
             checkable
             checkedKeys={checkedKeys}
             onCheck={onCheck}
-            defaultExpandAll
+            expandedKeys={expandedKeys}
+            onExpand={onExpand}
+            autoExpandParent={false}
             treeData={treeData}
             onSelect={onSelect}
             titleRender={titleRender}
@@ -213,7 +223,9 @@ WorkTreeView.propTypes = {
   onExport: PropTypes.func.isRequired,
   onAddVolume: PropTypes.func.isRequired,
   onAddChapter: PropTypes.func.isRequired,
-  onDeleteNode: PropTypes.func.isRequired
+  onDeleteNode: PropTypes.func.isRequired,
+  expandedKeys: PropTypes.array.isRequired,
+  onExpand: PropTypes.func.isRequired
 }
 
 export default WorkTreeView

@@ -4,6 +4,7 @@ import { Layout, message, Modal } from 'antd'
 import WorkTreeView from './WorkTreeView'
 import ContentEditor from './ContentEditor'
 import VersionHistoryModal from './VersionHistoryModal'
+import { useRef } from 'react'
 
 const { Sider, Content } = Layout
 
@@ -75,8 +76,10 @@ function WorkEditor({ workId, workName, onBack }) {
   const [siderWidth, setSiderWidth] = useState(280)
   const [isResizing, setIsResizing] = useState(false)
   const [wordCount, setWordCount] = useState(0)
+  const [expandedKeys, setExpandedKeys] = useState([])
+  const expandedKeysRef = useRef([])
 
-  const loadWorkStructure = async () => {
+  const loadWorkStructure = async (preserveExpandedKeys = false) => {
     setLoading(true)
     try {
       const structure = await window.api.getWorkStructure(workId)
@@ -92,6 +95,32 @@ function WorkEditor({ workId, workName, onBack }) {
         } catch (error) {
           console.error('Failed to parse saved checked keys:', error)
         }
+      }
+
+      // 只在首次加载或明确要求时才重新加载展开状态
+      if (!preserveExpandedKeys) {
+        // 加载保存的展开状态
+        const savedExpandedKeys = await window.api.getSetting(`work_${workId}_expanded_nodes`)
+        console.log('Loading expanded keys from DB:', savedExpandedKeys)
+        if (savedExpandedKeys) {
+          try {
+            const parsed = JSON.parse(savedExpandedKeys)
+            console.log('Parsed expanded keys:', parsed)
+            setExpandedKeys(parsed)
+            expandedKeysRef.current = parsed
+            console.debug('Loaded expanded keys for work:', workId, parsed)
+          } catch (error) {
+            console.error('Failed to parse saved expanded keys:', error)
+          }
+        } else {
+          // 如果没有保存的展开状态，默认展开根节点
+          console.log('No saved expanded keys, using default')
+          const rootKeys = structure.map(node => node.key)
+          setExpandedKeys(rootKeys)
+          expandedKeysRef.current = rootKeys
+        }
+      } else {
+        console.log('Preserving current expanded keys:', expandedKeysRef.current)
       }
     } catch (error) {
       console.error('Failed to load work structure:', error)
@@ -254,22 +283,27 @@ function WorkEditor({ workId, workName, onBack }) {
     return null
   }
 
-  // 收集勾选节点内容
-  const collectCheckedNodesContent = async () => {
-    const nodesToExport = []
-    for (const key of checkedKeys) {
-      const nodeId = parseInt(key)
-      const node = findNodeById(treeData, nodeId)
-      
-      if (node) {
-        const nodeContent = await window.api.getNodeContent(nodeId)
-        nodesToExport.push({
+  // 按树形结构顺序遍历收集节点
+  const collectNodesInOrder = async (nodes, checkedSet, result = []) => {
+    for (const node of nodes) {
+      if (checkedSet.has(node.key)) {
+        const nodeContent = await window.api.getNodeContent(parseInt(node.key))
+        result.push({
           title: node.title,
           content: nodeContent || ''
         })
       }
+      if (node.children) {
+        await collectNodesInOrder(node.children, checkedSet, result)
+      }
     }
-    return nodesToExport
+    return result
+  }
+
+  // 收集勾选节点内容
+  const collectCheckedNodesContent = async () => {
+    const checkedSet = new Set(checkedKeys)
+    return await collectNodesInOrder(treeData, checkedSet)
   }
 
   // 复制选中内容到剪贴板
@@ -572,13 +606,29 @@ function WorkEditor({ workId, workName, onBack }) {
         }
 
         message.success('卷添加成功')
-        await loadWorkStructure()
+        await loadWorkStructure(true) // 保留当前展开状态
       } else {
         message.error('添加卷失败')
       }
     } catch (error) {
       console.error('Failed to add volume:', error)
       message.error('添加卷失败')
+    }
+  }
+
+  // 处理树节点展开/收起
+  const handleExpand = async (newExpandedKeys) => {
+    console.log('handleExpand called with keys:', newExpandedKeys)
+    setExpandedKeys(newExpandedKeys)
+    expandedKeysRef.current = newExpandedKeys
+    // 保存展开状态
+    try {
+      const stringified = JSON.stringify(newExpandedKeys)
+      console.log('Saving expanded keys to DB:', stringified)
+      await window.api.setSetting(`work_${workId}_expanded_nodes`, stringified)
+      console.log('Successfully saved expanded keys for work:', workId)
+    } catch (error) {
+      console.error('Failed to save expanded keys:', error)
     }
   }
 
@@ -605,7 +655,7 @@ function WorkEditor({ workId, workName, onBack }) {
         await window.api.createNode(workId, newChapter.id, 'chapter_context', '上下文总结Context', 3)
 
         message.success('章节添加成功')
-        await loadWorkStructure()
+        await loadWorkStructure(true) // 保留当前展开状态
       } else {
         message.error('添加章节失败')
       }
@@ -637,7 +687,7 @@ function WorkEditor({ workId, workName, onBack }) {
               setContentChanged(false)
             }
             // 重新加载结构
-            await loadWorkStructure()
+            await loadWorkStructure(true) // 保留当前展开状态
           } else {
             message.error(`${typeText}删除失败`)
           }
@@ -699,6 +749,8 @@ function WorkEditor({ workId, workName, onBack }) {
           onAddVolume={handleAddVolume}
           onAddChapter={handleAddChapter}
           onDeleteNode={handleDeleteNode}
+          expandedKeys={expandedKeys}
+          onExpand={handleExpand}
         />
         {/* 拖拽分隔条 */}
         <div
