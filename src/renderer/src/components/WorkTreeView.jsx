@@ -21,6 +21,7 @@ function WorkTreeView({
   onBack,
   onCopy,
   onExport,
+  onExportAllContent,
   onAddVolume,
   onAddChapter,
   onDeleteNode,
@@ -162,7 +163,7 @@ function WorkTreeView({
         <div style={{ fontSize: '14px', fontWeight: '600', marginBottom: '8px' }}>
           {workName}
         </div>
-        {checkedKeys.length > 0 && (
+        {checkedKeys.length > 0 ? (
           <Space style={{ width: '100%' }} size={4}>
             <Button
               icon={<CopyOutlined />}
@@ -181,7 +182,24 @@ function WorkTreeView({
             >
               导出({checkedKeys.length})
             </Button>
+            <Button
+              icon={<ExportOutlined />}
+              onClick={onExportAllContent}
+              size="small"
+              style={{ flex: 1, fontSize: '12px' }}
+            >
+              导出正文
+            </Button>
           </Space>
+        ) : (
+          <Button
+            icon={<ExportOutlined />}
+            onClick={onExportAllContent}
+            size="small"
+            style={{ width: '100%', fontSize: '12px' }}
+          >
+            导出正文
+          </Button>
         )}
       </div>
 
@@ -221,6 +239,7 @@ WorkTreeView.propTypes = {
   onBack: PropTypes.func.isRequired,
   onCopy: PropTypes.func.isRequired,
   onExport: PropTypes.func.isRequired,
+  onExportAllContent: PropTypes.func.isRequired,
   onAddVolume: PropTypes.func.isRequired,
   onAddChapter: PropTypes.func.isRequired,
   onDeleteNode: PropTypes.func.isRequired,

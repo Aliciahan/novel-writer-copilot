@@ -300,6 +300,23 @@ function WorkEditor({ workId, workName, onBack }) {
     return result
   }
 
+  // 递归收集所有正文节点（nodeType 为 'chapter_content'）
+  const collectAllContentNodes = async (nodes, result = []) => {
+    for (const node of nodes) {
+      if (node.nodeType === 'chapter_content') {
+        const nodeContent = await window.api.getNodeContent(parseInt(node.key))
+        result.push({
+          title: node.title,
+          content: nodeContent || ''
+        })
+      }
+      if (node.children) {
+        await collectAllContentNodes(node.children, result)
+      }
+    }
+    return result
+  }
+
   // 收集勾选节点内容
   const collectCheckedNodesContent = async () => {
     const checkedSet = new Set(checkedKeys)
@@ -358,6 +375,34 @@ function WorkEditor({ workId, workName, onBack }) {
         message.error('请先在设置中配置输出文件夹')
       } else {
         message.error('导出失败: ' + (error.message || '未知错误'))
+      }
+    }
+  }
+
+  // 导出所有正文内容到Markdown
+  const handleExportAllContent = async () => {
+    try {
+      message.loading({ content: '正在收集正文内容...', key: 'export-all' })
+      const contentNodes = await collectAllContentNodes(treeData)
+      
+      if (contentNodes.length === 0) {
+        message.warning('没有找到任何正文内容')
+        return
+      }
+
+      message.loading({ content: `正在导出 ${contentNodes.length} 个章节...`, key: 'export-all' })
+      const result = await window.api.exportNodesToMarkdown(contentNodes, `${workName}-正文`)
+      
+      if (result.success) {
+        message.success({ content: `导出成功: ${result.filePath}`, key: 'export-all', duration: 3 })
+        console.debug('Exported all content to:', result.filePath)
+      }
+    } catch (error) {
+      console.error('Export all content failed:', error)
+      if (error.message && error.message.includes('输出文件夹')) {
+        message.error({ content: '请先在设置中配置输出文件夹', key: 'export-all', duration: 3 })
+      } else {
+        message.error({ content: '导出失败: ' + (error.message || '未知错误'), key: 'export-all', duration: 3 })
       }
     }
   }
@@ -746,6 +791,7 @@ function WorkEditor({ workId, workName, onBack }) {
           onBack={onBack}
           onCopy={handleCopyToClipboard}
           onExport={handleExportToMarkdown}
+          onExportAllContent={handleExportAllContent}
           onAddVolume={handleAddVolume}
           onAddChapter={handleAddChapter}
           onDeleteNode={handleDeleteNode}
