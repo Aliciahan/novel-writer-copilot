@@ -99,6 +99,45 @@ function createWindow() {
     return { action: 'deny' }
   })
 
+  // 添加右键菜单支持
+  mainWindow.webContents.on('context-menu', (event, params) => {
+    const { editFlags, selectionText } = params
+    const { canCut, canCopy, canPaste, canSelectAll, canUndo, canRedo } = editFlags
+
+    const menuTemplate = []
+
+    if (canUndo) {
+      menuTemplate.push({ label: '撤销', role: 'undo' })
+    }
+    if (canRedo) {
+      menuTemplate.push({ label: '重做', role: 'redo' })
+    }
+    if (canUndo || canRedo) {
+      menuTemplate.push({ type: 'separator' })
+    }
+
+    if (canCut) {
+      menuTemplate.push({ label: '剪切', role: 'cut' })
+    }
+    if (canCopy) {
+      menuTemplate.push({ label: '复制', role: 'copy' })
+    }
+    if (canPaste) {
+      menuTemplate.push({ label: '粘贴', role: 'paste' })
+    }
+    if (canSelectAll) {
+      if (menuTemplate.length > 0) {
+        menuTemplate.push({ type: 'separator' })
+      }
+      menuTemplate.push({ label: '全选', role: 'selectAll' })
+    }
+
+    if (menuTemplate.length > 0) {
+      const contextMenu = Menu.buildFromTemplate(menuTemplate)
+      contextMenu.popup({ window: mainWindow })
+    }
+  })
+
   // HMR for renderer base on electron-vite cli.
   // Load the remote URL for development or the local html file for production.
   if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
@@ -275,6 +314,102 @@ app.whenReady().then(() => {
       return { success: true, filePath }
     } catch (error) {
       console.error('Export to markdown failed:', error)
+      throw error
+    }
+  })
+
+  // 导出节点到TXT
+  ipcMain.handle('export-nodes-to-text', async (event, nodes, workName) => {
+    try {
+      const outputFolder = await getSetting('outputFolder')
+      if (!outputFolder) {
+        throw new Error('请先在设置中配置输出文件夹')
+      }
+
+      // 确保输出文件夹存在
+      if (!existsSync(outputFolder)) {
+        mkdirSync(outputFolder, { recursive: true })
+      }
+
+      // 生成文件名 YYYY-MM-DDTHH-mm-ss.txt
+      const now = new Date()
+      const filename = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}T${String(now.getHours()).padStart(2, '0')}-${String(now.getMinutes()).padStart(2, '0')}-${String(now.getSeconds()).padStart(2, '0')}.txt`
+      const filePath = join(outputFolder, filename)
+
+      // 构建 TXT 内容
+      let text = `${workName}\n`
+      text += `导出时间: ${now.toLocaleString('zh-CN')}\n`
+      text += `${'='.repeat(50)}\n\n`
+
+      for (const node of nodes) {
+        text += `${node.title}\n`
+        text += `${'-'.repeat(30)}\n`
+        text += `${node.content || '(无内容)'}\n\n`
+      }
+
+      // 写入文件
+      writeFileSync(filePath, text, 'utf-8')
+      
+      return { success: true, filePath }
+    } catch (error) {
+      console.error('Export to text failed:', error)
+      throw error
+    }
+  })
+
+  // MacOS TTS 朗读功能
+  let ttsProcess = null
+  
+  ipcMain.handle('tts-speak', async (event, text) => {
+    try {
+      // 只在 MacOS 上支持
+      if (process.platform !== 'darwin') {
+        throw new Error('朗读功能仅支持 MacOS')
+      }
+
+      // 如果正在朗读，先停止
+      if (ttsProcess) {
+        ttsProcess.kill()
+        ttsProcess = null
+      }
+
+      if (!text || text.trim().length === 0) {
+        return { success: false, message: '没有可朗读的内容' }
+      }
+
+      // 使用 MacOS 的 say 命令进行朗读
+      const { spawn } = require('child_process')
+      // 使用中文语音 Tingting (简体中文)
+      ttsProcess = spawn('say', ['-v', 'Tingting', text], {
+        encoding: 'utf8',
+        env: { ...process.env, LANG: 'zh_CN.UTF-8' }
+      })
+
+      ttsProcess.on('error', (error) => {
+        console.error('TTS error:', error)
+        ttsProcess = null
+      })
+
+      ttsProcess.on('exit', () => {
+        ttsProcess = null
+      })
+
+      return { success: true }
+    } catch (error) {
+      console.error('TTS speak failed:', error)
+      throw error
+    }
+  })
+
+  ipcMain.handle('tts-stop', async () => {
+    try {
+      if (ttsProcess) {
+        ttsProcess.kill()
+        ttsProcess = null
+      }
+      return { success: true }
+    } catch (error) {
+      console.error('TTS stop failed:', error)
       throw error
     }
   })

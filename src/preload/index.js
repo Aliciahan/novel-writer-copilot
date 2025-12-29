@@ -51,7 +51,12 @@ const api = {
   aiGenerateText: (prompt, context) => ipcRenderer.invoke('ai-generate-text', prompt, context),
 
   // 导出API
-  exportNodesToMarkdown: (nodes, workName) => ipcRenderer.invoke('export-nodes-to-markdown', nodes, workName)
+  exportNodesToMarkdown: (nodes, workName) => ipcRenderer.invoke('export-nodes-to-markdown', nodes, workName),
+  exportNodesToText: (nodes, workName) => ipcRenderer.invoke('export-nodes-to-text', nodes, workName),
+
+  // TTS朗读API
+  ttsSpeak: (text) => ipcRenderer.invoke('tts-speak', text),
+  ttsStop: () => ipcRenderer.invoke('tts-stop')
 }
 
 // Use `contextBridge` APIs to expose Electron APIs to

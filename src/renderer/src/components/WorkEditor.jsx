@@ -78,8 +78,18 @@ function WorkEditor({ workId, workName, onBack }) {
   const [wordCount, setWordCount] = useState(0)
   const [expandedKeys, setExpandedKeys] = useState([])
   const expandedKeysRef = useRef([])
+  const [isSpeaking, setIsSpeaking] = useState(false)
+  const treeScrollPositionRef = useRef(0)
+  const workTreeViewRef = useRef(null)
 
   const loadWorkStructure = async (preserveExpandedKeys = false) => {
+    // 保存当前滚动位置
+    if (preserveExpandedKeys && workTreeViewRef.current) {
+      const currentScrollPos = workTreeViewRef.current.getScrollPosition()
+      treeScrollPositionRef.current = currentScrollPos
+      console.log('Saving scroll position:', currentScrollPos)
+    }
+    
     setLoading(true)
     try {
       const structure = await window.api.getWorkStructure(workId)
@@ -128,6 +138,17 @@ function WorkEditor({ workId, workName, onBack }) {
     } finally {
       setLoading(false)
     }
+    
+    // 恢复滚动位置（在 loading 结束后延迟执行）
+    if (preserveExpandedKeys && treeScrollPositionRef.current > 0) {
+      // 使用较长的延迟确保 DOM 完全更新
+      setTimeout(() => {
+        if (workTreeViewRef.current) {
+          console.log('Restoring scroll position to:', treeScrollPositionRef.current)
+          workTreeViewRef.current.setScrollPosition(treeScrollPositionRef.current)
+        }
+      }, 100)
+    }
   }
 
   // 加载作品结构
@@ -137,6 +158,25 @@ function WorkEditor({ workId, workName, onBack }) {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [workId])
+
+  // 监听保存快捷键 (Cmd+S / Ctrl+S)
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      // Mac: metaKey (Cmd), Windows/Linux: ctrlKey
+      if ((e.metaKey || e.ctrlKey) && e.key === 's') {
+        e.preventDefault() // 阻止浏览器默认保存行为
+        if (selectedNode && contentChanged) {
+          handleSaveContent()
+        }
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedNode, contentChanged, content])
 
   // 实际加载节点内容
   const loadNodeContent = async (nodeId, node) => {
@@ -260,6 +300,8 @@ function WorkEditor({ workId, workName, onBack }) {
         message.success('保存成功')
         setOriginalContent(content)
         setContentChanged(false)
+        // 重新加载树结构以更新 hasContent 状态（小绿点）
+        await loadWorkStructure(true)
       } else {
         message.error('保存失败')
       }
@@ -379,7 +421,7 @@ function WorkEditor({ workId, workName, onBack }) {
     }
   }
 
-  // 导出所有正文内容到Markdown
+  // 导出所有正文内容到TXT
   const handleExportAllContent = async () => {
     try {
       message.loading({ content: '正在收集正文内容...', key: 'export-all' })
@@ -391,7 +433,7 @@ function WorkEditor({ workId, workName, onBack }) {
       }
 
       message.loading({ content: `正在导出 ${contentNodes.length} 个章节...`, key: 'export-all' })
-      const result = await window.api.exportNodesToMarkdown(contentNodes, `${workName}-正文`)
+      const result = await window.api.exportNodesToText(contentNodes, `${workName}-正文`)
       
       if (result.success) {
         message.success({ content: `导出成功: ${result.filePath}`, key: 'export-all', duration: 3 })
@@ -769,6 +811,47 @@ function WorkEditor({ workId, workName, onBack }) {
     return checkAncestor(node, ancestorId)
   }
 
+  // 朗读当前内容
+  const handleSpeak = async () => {
+    if (!content || content.trim().length === 0) {
+      message.warning('没有可朗读的内容')
+      return
+    }
+
+    try {
+      setIsSpeaking(true)
+      const result = await window.api.ttsSpeak(content)
+      if (!result.success) {
+        message.error(result.message || '朗读失败')
+        setIsSpeaking(false)
+      }
+      // 注意：由于 say 命令是异步的，我们无法直接知道何时朗读结束
+      // 用户需要手动点击停止按钮，或者等待朗读自然结束
+      // 可以考虑添加一个定时器来重置状态，但这不够准确
+    } catch (error) {
+      console.error('TTS speak failed:', error)
+      if (error.message && error.message.includes('仅支持')) {
+        message.error('朗读功能仅支持 MacOS 系统')
+      } else {
+        message.error('朗读失败: ' + (error.message || '未知错误'))
+      }
+      setIsSpeaking(false)
+    }
+  }
+
+  // 停止朗读
+  const handleStopSpeak = async () => {
+    try {
+      await window.api.ttsStop()
+      setIsSpeaking(false)
+      message.success('已停止朗读')
+    } catch (error) {
+      console.error('TTS stop failed:', error)
+      message.error('停止朗读失败')
+      setIsSpeaking(false)
+    }
+  }
+
   return (
     <Layout style={{ height: '100vh', overflow: 'hidden' }}>
       <Sider
@@ -782,6 +865,7 @@ function WorkEditor({ workId, workName, onBack }) {
         }}
       >
         <WorkTreeView
+          ref={workTreeViewRef}
           workName={workName}
           treeData={treeData}
           loading={loading}
@@ -853,6 +937,9 @@ function WorkEditor({ workId, workName, onBack }) {
           checkedNodesCount={checkedKeys.length}
           estimatedTokens={estimatedTokens}
           wordCount={wordCount}
+          onSpeak={handleSpeak}
+          onStopSpeak={handleStopSpeak}
+          isSpeaking={isSpeaking}
         />
       </Content>
 

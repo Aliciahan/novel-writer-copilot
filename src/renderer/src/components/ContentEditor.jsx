@@ -1,6 +1,6 @@
 import PropTypes from 'prop-types'
 import { Input, Button, Spin } from 'antd'
-import { HistoryOutlined } from '@ant-design/icons'
+import { HistoryOutlined, SoundOutlined, StopOutlined } from '@ant-design/icons'
 import AIAssistant from './AIAssistant'
 
 const { TextArea } = Input
@@ -21,7 +21,11 @@ function ContentEditor({
   aiGenerating,
   checkedNodesCount,
   estimatedTokens,
-  wordCount
+  wordCount,
+  // TTS props
+  onSpeak,
+  onStopSpeak,
+  isSpeaking
 }) {
   if (!selectedNode) {
     return (
@@ -79,6 +83,10 @@ function ContentEditor({
             onChange={(e) => onContentChange(e.target.value)}
             placeholder="在这里输入内容..."
             style={{ fontSize: '14px', height: '100%', resize: 'none' }}
+            onContextMenu={(e) => {
+              // 允许浏览器默认的右键菜单（包含复制、粘贴、剪切等）
+              // 不需要阻止默认行为，让原生右键菜单显示
+            }}
           />
         </div>
 
@@ -92,7 +100,26 @@ function ContentEditor({
             estimatedTokens={estimatedTokens}
           />
 
-          <div style={{ textAlign: 'right' }}>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
+            {isSpeaking ? (
+              <Button 
+                size="small"
+                icon={<StopOutlined />}
+                onClick={onStopSpeak}
+                danger
+              >
+                停止朗读
+              </Button>
+            ) : (
+              <Button 
+                size="small"
+                icon={<SoundOutlined />}
+                onClick={onSpeak}
+                disabled={!content || content.trim().length === 0}
+              >
+                朗读
+              </Button>
+            )}
             <Button 
               size="small"
               type="primary" 
@@ -124,7 +151,10 @@ ContentEditor.propTypes = {
   aiGenerating: PropTypes.bool.isRequired,
   checkedNodesCount: PropTypes.number.isRequired,
   estimatedTokens: PropTypes.number.isRequired,
-  wordCount: PropTypes.number.isRequired
+  wordCount: PropTypes.number.isRequired,
+  onSpeak: PropTypes.func.isRequired,
+  onStopSpeak: PropTypes.func.isRequired,
+  isSpeaking: PropTypes.bool.isRequired
 }
 
 export default ContentEditor

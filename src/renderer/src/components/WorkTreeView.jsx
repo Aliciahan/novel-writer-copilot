@@ -1,5 +1,6 @@
 import PropTypes from 'prop-types'
 import { Tree, Button, Spin, Space, Dropdown } from 'antd'
+import { forwardRef, useImperativeHandle, useRef } from 'react'
 import { 
   ArrowLeftOutlined, 
   FolderOutlined, 
@@ -11,7 +12,7 @@ import {
   DeleteOutlined
 } from '@ant-design/icons'
 
-function WorkTreeView({ 
+const WorkTreeView = forwardRef(function WorkTreeView({ 
   workName,
   treeData,
   loading,
@@ -27,7 +28,25 @@ function WorkTreeView({
   onDeleteNode,
   expandedKeys,
   onExpand
-}) {
+}, ref) {
+  const scrollContainerRef = useRef(null)
+
+  // 暴露方法给父组件
+  useImperativeHandle(ref, () => ({
+    getScrollPosition: () => {
+      const position = scrollContainerRef.current?.scrollTop || 0
+      console.log('Getting scroll position:', position)
+      return position
+    },
+    setScrollPosition: (position) => {
+      console.log('Setting scroll position to:', position)
+      if (scrollContainerRef.current) {
+        scrollContainerRef.current.scrollTop = position
+        console.log('Scroll position set to:', scrollContainerRef.current.scrollTop)
+      }
+    }
+  }))
+
   // 渲染树节点图标
   const renderTreeIcon = ({ isLeaf }) => {
     return isLeaf ? <FileOutlined /> : <FolderOutlined />
@@ -203,12 +222,13 @@ function WorkTreeView({
         )}
       </div>
 
-      <div style={{ padding: '8px 12px', flex: 1, overflow: 'auto' }}>
-        {loading ? (
+      <div ref={scrollContainerRef} style={{ padding: '8px 12px', flex: 1, overflow: 'auto' }}>
+        {loading && (
           <div style={{ padding: '16px', textAlign: 'center' }}>
             <Spin size="small" tip="加载中..." />
           </div>
-        ) : (
+        )}
+        {!loading && (
           <Tree
             showIcon
             icon={renderTreeIcon}
@@ -227,7 +247,7 @@ function WorkTreeView({
       </div>
     </div>
   )
-}
+})
 
 WorkTreeView.propTypes = {
   workName: PropTypes.string.isRequired,
