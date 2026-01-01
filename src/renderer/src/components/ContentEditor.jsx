@@ -1,11 +1,12 @@
 import PropTypes from 'prop-types'
 import { Input, Button, Spin } from 'antd'
 import { HistoryOutlined, SoundOutlined, StopOutlined } from '@ant-design/icons'
+import { forwardRef, useImperativeHandle, useRef } from 'react'
 import AIAssistant from './AIAssistant'
 
 const { TextArea } = Input
 
-function ContentEditor({ 
+const ContentEditor = forwardRef(function ContentEditor({ 
   selectedNode,
   content,
   onContentChange,
@@ -26,7 +27,48 @@ function ContentEditor({
   onSpeak,
   onStopSpeak,
   isSpeaking
-}) {
+}, ref) {
+  const textAreaRef = useRef(null)
+
+  // 暴露方法给父组件
+  useImperativeHandle(ref, () => ({
+    getEditState: () => {
+      if (!textAreaRef.current?.resizableTextArea?.textArea) return null
+      const textarea = textAreaRef.current.resizableTextArea.textArea
+      return {
+        cursorStart: textarea.selectionStart,
+        cursorEnd: textarea.selectionEnd,
+        scrollTop: textarea.scrollTop
+      }
+    },
+    restoreEditState: (state) => {
+      if (!textAreaRef.current?.resizableTextArea?.textArea) {
+        console.warn('TextArea not ready for restoring edit state')
+        return
+      }
+      const textarea = textAreaRef.current.resizableTextArea.textArea
+      
+      // 先聚焦，确保 textarea 处于活动状态
+      textarea.focus()
+      
+      // 恢复光标位置
+      try {
+        textarea.setSelectionRange(state.cursorStart, state.cursorEnd)
+        console.log('Cursor position restored:', state.cursorStart, state.cursorEnd)
+      } catch (error) {
+        console.error('Failed to restore cursor position:', error)
+      }
+      
+      // 恢复滚动位置
+      try {
+        textarea.scrollTop = state.scrollTop
+        console.log('Scroll position restored:', state.scrollTop, 'actual:', textarea.scrollTop)
+      } catch (error) {
+        console.error('Failed to restore scroll position:', error)
+      }
+    }
+  }))
+
   if (!selectedNode) {
     return (
       <div
@@ -79,6 +121,7 @@ function ContentEditor({
 
         <div style={{ flex: '1 1 auto', marginBottom: '12px', overflow: 'auto' }}>
           <TextArea
+            ref={textAreaRef}
             value={content}
             onChange={(e) => onContentChange(e.target.value)}
             placeholder="在这里输入内容..."
@@ -134,7 +177,7 @@ function ContentEditor({
       </div>
     </Spin>
   )
-}
+})
 
 ContentEditor.propTypes = {
   selectedNode: PropTypes.object,

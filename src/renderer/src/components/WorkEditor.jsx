@@ -81,6 +81,10 @@ function WorkEditor({ workId, workName, onBack }) {
   const [isSpeaking, setIsSpeaking] = useState(false)
   const treeScrollPositionRef = useRef(0)
   const workTreeViewRef = useRef(null)
+  const contentEditorRef = useRef(null)
+  // 存储每个节点的编辑状态（光标位置、滚动位置）
+  const nodeEditStatesRef = useRef({})
+  const saveEditStateTimerRef = useRef(null)
 
   const loadWorkStructure = async (preserveExpandedKeys = false) => {
     // 保存当前滚动位置
@@ -178,6 +182,68 @@ function WorkEditor({ workId, workName, onBack }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedNode, contentChanged, content])
 
+  // 组件卸载时保存当前编辑状态
+  useEffect(() => {
+    return () => {
+      // 清理定时器
+      if (saveEditStateTimerRef.current) {
+        clearTimeout(saveEditStateTimerRef.current)
+      }
+      // 立即同步保存当前编辑状态
+      if (selectedNode && contentEditorRef.current) {
+        const state = contentEditorRef.current.getEditState()
+        if (state) {
+          const key = `node_${selectedNode.key}_edit_state`
+          // 使用同步方式保存，确保在组件卸载前完成
+          try {
+            // 注意：这里仍然是异步的，但我们不等待结果
+            window.api.setSetting(key, JSON.stringify(state))
+            console.log('Edit state saved on unmount for node:', selectedNode.key)
+          } catch (err) {
+            console.error('Failed to save edit state on unmount:', err)
+          }
+        }
+      }
+    }
+  }, [selectedNode])
+
+  // 保存当前节点的编辑状态到数据库
+  const saveCurrentEditState = async (immediate = false) => {
+    if (selectedNode && contentEditorRef.current) {
+      const state = contentEditorRef.current.getEditState()
+      if (state) {
+        nodeEditStatesRef.current[selectedNode.key] = state
+        console.log('Saved edit state for node:', selectedNode.key, state)
+        
+        // 如果需要立即保存，直接执行
+        if (immediate) {
+          try {
+            const key = `node_${selectedNode.key}_edit_state`
+            await window.api.setSetting(key, JSON.stringify(state))
+            console.log('Edit state immediately saved to database for node:', selectedNode.key)
+          } catch (error) {
+            console.error('Failed to immediately save edit state to database:', error)
+          }
+          return
+        }
+        
+        // 保存到数据库（带防抖）
+        if (saveEditStateTimerRef.current) {
+          clearTimeout(saveEditStateTimerRef.current)
+        }
+        saveEditStateTimerRef.current = setTimeout(async () => {
+          try {
+            const key = `node_${selectedNode.key}_edit_state`
+            await window.api.setSetting(key, JSON.stringify(state))
+            console.log('Edit state saved to database for node:', selectedNode.key)
+          } catch (error) {
+            console.error('Failed to save edit state to database:', error)
+          }
+        }, 500) // 500ms 防抖
+      }
+    }
+  }
+
   // 实际加载节点内容
   const loadNodeContent = async (nodeId, node) => {
     setContentLoading(true)
@@ -188,6 +254,39 @@ function WorkEditor({ workId, workName, onBack }) {
       setContentChanged(false)
       setSelectedNode(node)
       setWordCount(countWords(nodeContent || ''))
+      
+      // 先从内存中查找编辑状态
+      let savedState = nodeEditStatesRef.current[nodeId.toString()]
+      
+      // 如果内存中没有，从数据库加载
+      if (!savedState) {
+        try {
+          const key = `node_${nodeId}_edit_state`
+          const stateStr = await window.api.getSetting(key)
+          if (stateStr) {
+            savedState = JSON.parse(stateStr)
+            nodeEditStatesRef.current[nodeId.toString()] = savedState
+            console.log('Loaded edit state from database for node:', nodeId, savedState)
+          }
+        } catch (error) {
+          console.error('Failed to load edit state from database:', error)
+        }
+      }
+      
+      // 恢复该节点之前保存的编辑状态
+      if (savedState) {
+        console.log('Restoring edit state for node:', nodeId, savedState)
+        // 增加延迟，确保内容已渲染并且 TextArea 完全初始化
+        setTimeout(() => {
+          if (contentEditorRef.current) {
+            contentEditorRef.current.restoreEditState(savedState)
+            // 再次确认滚动位置（有时需要二次设置）
+            setTimeout(() => {
+              contentEditorRef.current?.restoreEditState(savedState)
+            }, 50)
+          }
+        }, 100)
+      }
     } catch (error) {
       console.error('Failed to load node content:', error)
       message.error('加载内容失败')
@@ -201,6 +300,9 @@ function WorkEditor({ workId, workName, onBack }) {
     if (selectedKeys.length === 0) return
 
     const nodeId = parseInt(selectedKeys[0])
+    
+    // 立即保存当前节点的编辑状态（不使用防抖）
+    await saveCurrentEditState(true)
 
     // 如果当前有未保存的修改，提示用户
     if (contentChanged && selectedNode) {
@@ -852,6 +954,18 @@ function WorkEditor({ workId, workName, onBack }) {
     }
   }
 
+  // 返回作品列表前保存当前编辑状态
+  const handleBack = async () => {
+    // 立即保存当前编辑状态
+    await saveCurrentEditState(true)
+    // 清理定时器
+    if (saveEditStateTimerRef.current) {
+      clearTimeout(saveEditStateTimerRef.current)
+    }
+    // 调用父组件的 onBack
+    onBack()
+  }
+
   return (
     <Layout style={{ height: '100vh', overflow: 'hidden' }}>
       <Sider
@@ -872,7 +986,7 @@ function WorkEditor({ workId, workName, onBack }) {
           checkedKeys={checkedKeys}
           onCheck={handleCheck}
           onSelect={handleSelect}
-          onBack={onBack}
+          onBack={handleBack}
           onCopy={handleCopyToClipboard}
           onExport={handleExportToMarkdown}
           onExportAllContent={handleExportAllContent}
@@ -918,12 +1032,15 @@ function WorkEditor({ workId, workName, onBack }) {
         }}
       >
         <ContentEditor
+          ref={contentEditorRef}
           selectedNode={selectedNode}
           content={content}
           onContentChange={(value) => {
             setContent(value)
             setContentChanged(value !== originalContent)
             setWordCount(countWords(value))
+            // 内容变化时也保存编辑状态（防抖）
+            saveCurrentEditState()
           }}
           contentLoading={contentLoading}
           saving={saving}
